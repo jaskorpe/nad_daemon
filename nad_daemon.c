@@ -24,7 +24,7 @@ char *commands[] =
     "\rMain.Volume+\r", "\rMain.Volume-\r",
 
     "\rMain.Source+\r", "\rMain.Source-\r",
-    "\rMain.Source=Aux\r", "\rMain.Source=Video1\r",
+    "\rMain.Source=Aux\r", "\rMain.Source=Video\r",
     "\rMain.Source=CD\r", "\rMain.Source=Tuner\r",
     "\rMain.Source=Disc\r",
 

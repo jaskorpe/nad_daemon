@@ -1,0 +1,8 @@
+This program is meant to send commands to a NAD amplifier using RS232
+interface. Be extremely carefull if you want to test this. Small bugs
+could lead to damaged speakers and bleeding ears. Will try to support
+more types of NAD amplifiers, but it should at least support NAD
+355bee at the moment.
+
+--
+Jon Anders Skorpen - jaskorpe@ping.uio.no
