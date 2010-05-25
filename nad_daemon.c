@@ -79,7 +79,7 @@ validate_buf (char *buf)
   int i;
 
   for (i = 0; commands[i] != NULL; i++)
-    if (strncmp (buf, commands[i], strlen(commands[i])) == 0)
+    if (strcmp (buf, commands[i]) == 0)
       {
 	ret = 1;
 	break;
