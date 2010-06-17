@@ -72,6 +72,12 @@ quit (char *message, int ret)
   exit (ret);
 }
 
+void
+license (void)
+{
+
+}
+
 int
 validate_buf (char *buf)
 {
@@ -81,10 +87,10 @@ validate_buf (char *buf)
   for (i = 0; commands[i] != NULL; i++)
     if (strcmp (buf, commands[i]) == 0)
       {
-	ret = 1;
-	break;
+        ret = 1;
+        break;
       }
-	
+
   return ret;
 }
 
@@ -113,7 +119,7 @@ tty_setup (char *filename)
    */
   if (tcgetattr(fd, &term) == -1)
     {
-      perror ("Could not get terminal attributes"); 
+      perror ("Could not get terminal attributes");
       return -1;
     }
 
@@ -132,7 +138,7 @@ tty_setup (char *filename)
 
   if (tcsetattr (fd, TCSANOW, &term) == -1)
     {
-      perror ("Could not update terminal attributes"); 
+      perror ("Could not update terminal attributes");
       return -1;
     }
 
@@ -161,7 +167,8 @@ sock_setup (int port, char *ip)
       return -1;
     }
 
-  if (setsockopt (sock, SOL_SOCKET, SO_REUSEADDR, &sock_opt, sizeof sock_opt) == -1)
+  if (setsockopt (sock, SOL_SOCKET, SO_REUSEADDR, &sock_opt, sizeof sock_opt) ==
+      -1)
     perror ("Could not set socket option");
 
   if (bind (sock, (struct sockaddr *)&addr, sizeof addr) == -1)
@@ -207,32 +214,36 @@ main (int argc, char **argv)
   while ((c = getopt (argc, argv, "dvhp:a:t:")) != -1)
     {
       switch (c)
-	{
-	case 't':
-	  filename = optarg;
-	  break;
-	case 'p':
-	  port = atoi (optarg);
-	  break;
-	case 'a':
-	  ip = optarg;
-	  break;
-	case 'v':
-	  verbose = 1;
-	  break;
-	case 'd':
-	  daemon_mode = 1;
-	  break;
-	case 'h':
-	  printf ("Usage: %s [-v] [-a <address>] [-p <port>] [-h] [-d] [-t tty]\n", argv[0]);
-	  printf (" -v\n\tVerbose output.\n");
-	  printf (" -d\n\tFork to background. After forking, output goes to /dev/null\n");
-	  printf (" -h\n\tPrint help.\n");
-	  printf (" -p port\n\tChoose which port to bind to.\n");
-	  printf (" -a address\n\tChoose which address to bind to.\n");
-	  printf (" -t tty\n\tChoose which tty to use.\n");
-	  exit (0);
-	}
+        {
+        case 't':
+          filename = optarg;
+          break;
+        case 'p':
+          port = atoi (optarg);
+          break;
+        case 'a':
+          ip = optarg;
+          break;
+        case 'v':
+          verbose = 1;
+          break;
+        case 'd':
+          daemon_mode = 1;
+          break;
+        case 'h':
+          printf ("Usage: %s [-v] [-a <address>] [-p <port>] ", argv[0]);
+          printf ("[-h] [-d] [-t tty]\n");
+
+          printf (" -v\n\tVerbose output.\n");
+          printf (" -d\n\tFork to background. ");
+          printf ("After forking, output goes to /dev/null\n");
+
+          printf (" -h\n\tPrint help.\n");
+          printf (" -p port\n\tChoose which port to bind to.\n");
+          printf (" -a address\n\tChoose which address to bind to.\n");
+          printf (" -t tty\n\tChoose which tty to use.\n");
+          exit (0);
+        }
     }
 
   /* Setup of tty
@@ -254,18 +265,19 @@ main (int argc, char **argv)
   if (daemon_mode)
     {
       if (verbose)
-	printf ("Forking to background...\n");
+        printf ("Forking to background...\n");
       if (daemon (0, 0) == -1)
-	perror ("Could not fork to background");
+        perror ("Could not fork to background");
     }
   while (1)
     {
       addrlen = sizeof connected_addr;
-      if ((connected_sock = accept (sock, (struct sockaddr *)&connected_addr, &addrlen)) == -1)
-	{
-	  perror ("Could not accept incoming connection");
-	  continue;
-	}
+      if ((connected_sock =
+           accept (sock, (struct sockaddr *)&connected_addr, &addrlen)) == -1)
+        {
+          perror ("Could not accept incoming connection");
+          continue;
+        }
 
       fds.fd = connected_sock;
       fds.events = 0 | POLLIN;
@@ -274,46 +286,46 @@ main (int argc, char **argv)
       ret = poll (&fds, 1, 500);
 
       switch (ret)
-	{
-	case -1:
-	case 0:
-	  /* Either some error or timeout.
-	   * continue statement apparantly works on
-	   * the while loop and not on the swithc
-	   */
-	  if (send (connected_sock, "Timeout", 8, 0) == -1)
-	    perror ("Could not send timeout message");
+        {
+        case -1:
+        case 0:
+          /* Either some error or timeout.
+           * continue statement apparantly works on
+           * the while loop and not on the swithc
+           */
+          if (send (connected_sock, "Timeout", 8, 0) == -1)
+            perror ("Could not send timeout message");
 
-	  close (connected_sock);
-	  continue;
-	}
+          close (connected_sock);
+          continue;
+        }
 
       ret = recv (connected_sock, buf, BUF_LEN, 0);
 
       if (!validate_buf (buf))
-	{
-	  if (send (connected_sock, "Invalid message", 16, 0) == -1)
-	    perror ("Could not send invalid message message");
+        {
+          if (send (connected_sock, "Invalid message", 16, 0) == -1)
+            perror ("Could not send invalid message message");
 
-	  close (connected_sock);
-	  continue;
-	}
+          close (connected_sock);
+          continue;
+        }
 
       if (verbose)
-	printf ("buf: %s\n", buf);
+        printf ("buf: %s\n", buf);
 
       if ((ret = write (fd, buf, strlen(buf))) == -1)
-	{
-	  perror ("Problem writing to device\n");
-	  quit ("Exiting...", -1);
-	  return -1;
-	}
+        {
+          perror ("Problem writing to device\n");
+          quit ("Exiting...", -1);
+          return -1;
+        }
 
       if (verbose)
-	printf ("Bytes written: %d\n", ret);
+        printf ("Bytes written: %d\n", ret);
 
       if (send (connected_sock, "Success", 8, 0) == -1)
-	perror ("Could not send success message");
+        perror ("Could not send success message");
       close (connected_sock);
 
     }
