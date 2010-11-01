@@ -156,6 +156,7 @@ main (int argc, char **argv)
   if (command >= command_list_len () || command < 0)
     {
       printf ("Invalid command\n");
+      close (sock);
       return -1;
     }
 
@@ -167,6 +168,7 @@ main (int argc, char **argv)
 
   printf ("%s", buf);
 
+  close (sock);
 
   return 0;
 }
