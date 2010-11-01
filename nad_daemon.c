@@ -33,7 +33,7 @@
 #include <poll.h>
 
 #define BUF_LEN 100
-#define PORT 6789
+#define PORT "6789"
 
 
 char *commands[] =
@@ -79,17 +79,26 @@ license (void)
 }
 
 int
-validate_buf (char *buf)
+validate_buf (char *buf, int recvlen)
 {
   int ret = 0;
   int i;
 
+  /* This will check that the received number of bytes is
+   * as long as a command, and that the received command
+   * is valid
+   */
+
   for (i = 0; commands[i] != NULL; i++)
-    if (strcmp (buf, commands[i]) == 0)
-      {
-        ret = 1;
-        break;
-      }
+    {
+      int s = strlen (commands[i]);
+
+      if (s == recvlen && strncmp (buf, commands[i], s) == 0)
+        {
+          ret = 1;
+          break;
+        }
+    }
 
   return ret;
 }
@@ -103,7 +112,7 @@ tty_setup (char *filename)
   fd = open (filename, O_RDWR | O_NOCTTY | O_NDELAY);
   if (fd == -1)
     {
-      printf("Unable to open %s\n", filename);
+      fprintf(stderr, "Unable to open %s\n", filename);
       return -1;
     }
 
@@ -145,37 +154,93 @@ tty_setup (char *filename)
   return fd;
 }
 
-int
-sock_setup (int port, char *ip)
+
+static int
+sock_bind (struct addrinfo *rp)
 {
   int sock;
-  struct sockaddr_in addr;
   int sock_opt = 1;
 
-  memset (&addr, 0, sizeof addr);
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons (port);
+  sock = socket (rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+  if (sock == -1)
+    return -1;
 
-  if (ip)
-    addr.sin_addr.s_addr = inet_addr (ip);
-  else
-    addr.sin_addr.s_addr = INADDR_ANY;
-
-  if ((sock = socket (AF_INET, SOCK_STREAM, 0)) == -1)
-    {
-      perror ("Could not create socket");
-      return -1;
-    }
-
-  if (setsockopt (sock, SOL_SOCKET, SO_REUSEADDR, &sock_opt, sizeof sock_opt) ==
-      -1)
+  if (setsockopt (sock, SOL_SOCKET, SO_REUSEADDR,
+                  &sock_opt, sizeof sock_opt)
+      == -1)
     perror ("Could not set socket option");
 
-  if (bind (sock, (struct sockaddr *)&addr, sizeof addr) == -1)
+  if (bind (sock, rp->ai_addr, rp->ai_addrlen) == 0)
+    return sock;
+
+
+  close (sock);
+  return -1;
+}
+
+
+int
+sock_setup (char *port, char *ip)
+{
+  int sock;
+  int sock4 = -1;
+  int sock6 = -1;
+
+  int ret;
+
+  struct addrinfo hints;
+  struct addrinfo *result, *rp;
+
+  memset (&hints, 0, sizeof (struct addrinfo));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_protocol = 0;
+  hints.ai_flags = AI_PASSIVE;
+  hints.ai_canonname = NULL;
+  hints.ai_next = NULL;
+
+  ret = getaddrinfo (ip, port, &hints, &result);
+  if (ret != 0)
     {
-      perror ("Could not bind socket to address");
+      fprintf (stderr, "Could not get host info: %s\n", gai_strerror (ret));
       return -1;
     }
+
+  for (rp = result; rp != NULL; rp = rp->ai_next)
+    {
+      if (rp->ai_family == AF_INET)
+        {
+          sock4 = sock_bind (rp);
+        }
+      else if (rp->ai_family == AF_INET6)
+        {
+          sock6 = sock_bind (rp);
+        }
+      else
+        {
+          fprintf (stderr, "Could not find any suitable interfaces\n");
+          return -1;
+        }
+    }
+
+  freeaddrinfo (result);
+
+  if (sock6 != -1)
+    {
+      sock = sock6;
+      close (sock4);
+    }
+  else if (sock4 != -1)
+    {
+      sock = sock4;
+      close (sock6);
+    }
+  else
+    {
+      fprintf (stderr, "Could not bind to any socket\n");
+      return -1;
+    }
+
 
   if (listen (sock, 5) == -1)
     {
@@ -197,17 +262,19 @@ main (int argc, char **argv)
 {
   int connected_sock;
   int ret;
-  int port = PORT;
   int c;
   int daemon_mode = 0;
 
   socklen_t addrlen;
 
   char buf[BUF_LEN];
+
   char *ip = NULL;
+  char *port = PORT;
+
   char *filename = "/dev/ttyS0";
 
-  struct sockaddr_in connected_addr;
+  struct sockaddr_storage connected_addr;
 
   struct pollfd fds;
 
@@ -219,7 +286,7 @@ main (int argc, char **argv)
           filename = optarg;
           break;
         case 'p':
-          port = atoi (optarg);
+          port = optarg;
           break;
         case 'a':
           ip = optarg;
@@ -258,7 +325,7 @@ main (int argc, char **argv)
   if ((sock = sock_setup (port, ip)) == -1)
     return -1;
   if (verbose)
-    printf ("Socket listening on port: %d\n", port);
+    printf ("Socket listening on port: %s\n", port);
 
   signal (SIGINT, signal_handler);
 
@@ -269,6 +336,8 @@ main (int argc, char **argv)
       if (daemon (0, 0) == -1)
         perror ("Could not fork to background");
     }
+
+
   while (1)
     {
       addrlen = sizeof connected_addr;
@@ -302,7 +371,7 @@ main (int argc, char **argv)
 
       ret = recv (connected_sock, buf, BUF_LEN, 0);
 
-      if (!validate_buf (buf))
+      if (!validate_buf (buf, ret))
         {
           if (send (connected_sock, "Invalid message", 16, 0) == -1)
             perror ("Could not send invalid message message");
@@ -312,9 +381,13 @@ main (int argc, char **argv)
         }
 
       if (verbose)
-        printf ("buf: %s\n", buf);
+        {
+          printf ("Command: ");
+          fwrite (buf+1, ret-2, 1, stdout);
+          printf ("\n");
+        }
 
-      if ((ret = write (fd, buf, strlen(buf))) == -1)
+      if ((ret = write (fd, buf, ret)) == -1)
         {
           perror ("Problem writing to device\n");
           quit ("Exiting...", -1);
