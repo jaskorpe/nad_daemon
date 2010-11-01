@@ -1,0 +1,4 @@
+*.o
+*~
+nad_daemon
+nad_client

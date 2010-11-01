@@ -6,8 +6,11 @@ more types of NAD amplifiers, but it should at least support NAD
 
 
 Features:
-IPv6
-
+- IPv6
+- May not bind to multiple addresses (but it will listen on all
+  interfaces/addresses as default)
+- No real protocol. No guarantee that the command will be, received
+  completely (in daemon), or sent completely (in client)
 
 --
 Jon Anders Skorpen - jaskorpe@ping.uio.no
