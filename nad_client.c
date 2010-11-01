@@ -55,7 +55,7 @@ list (void)
   printf ("Supported commands: (%d)\n", len);
 
   for (i = 0; i < len; i++)
-    printf ("%d - %s\n", i, commands[i]);
+    printf ("%d - %s\n", i, commands[i]+1);
 
   exit (0);
 }
