@@ -41,6 +41,7 @@ usage (char *name)
   printf (" -h Print help.\n");
   printf (" -6 Use IPv6.\n");
   printf (" -4 Use IPv4.\n");
+  printf (" -l List commands.\n");
   exit (0);
 }
 
@@ -55,6 +56,8 @@ list (void)
 
   for (i = 0; i < len; i++)
     printf ("%d - %s\n", i, commands[i]);
+
+  exit (0);
 }
 
 
