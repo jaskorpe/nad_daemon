@@ -34,6 +34,9 @@
 
 #include <poll.h>
 
+#include <pwd.h>
+
+
 #define BUF_LEN 100
 #define PORT "6789"
 
@@ -137,6 +140,47 @@ tty_setup (char *filename)
 
 
 static int
+drop_privileges (char *user)
+{
+  struct passwd *pw_entry;
+
+  int ret = 0;
+
+  if (!(pw_entry = getpwnam (user)))
+    {
+      fprintf (stderr, "No such user: %s\n", user);
+      return -1;
+    }
+
+
+  if (!setgid (pw_entry->pw_gid))
+    {
+      if (verbose)
+        printf ("Dropped group id to default group for %s\n", user);
+    }
+  else
+    {
+      fprintf (stderr, "Could not drop to default group for %s\n", user);
+      ret = -1;
+    }
+
+
+  if (!setuid (pw_entry->pw_uid))
+    {
+      if (verbose)
+        printf ("Dropped user id to %s\n", user);
+    }
+  else
+    {
+      fprintf (stderr, "Could not drop user id to %s\n", user);
+      ret = -1;
+    }
+
+  return ret;
+}
+
+
+static int
 sock_bind (struct addrinfo *rp)
 {
   int sock;
@@ -232,6 +276,7 @@ sock_setup (char *port, char *ip)
   return sock;
 }
 
+
 void
 signal_handler (int signum)
 {
@@ -253,13 +298,15 @@ main (int argc, char **argv)
   char *ip = NULL;
   char *port = PORT;
 
+  char *user = "nobody";
+
   char *filename = "/dev/ttyS0";
 
   struct sockaddr_storage connected_addr;
 
   struct pollfd fds;
 
-  while ((c = getopt (argc, argv, "dvhp:a:t:")) != -1)
+  while ((c = getopt (argc, argv, "dvhp:a:t:u:")) != -1)
     {
       switch (c)
         {
@@ -278,18 +325,23 @@ main (int argc, char **argv)
         case 'd':
           daemon_mode = 1;
           break;
+        case 'u':
+          user = optarg;
+          break;
         case 'h':
           printf ("Usage: %s [-v] [-a <address>] [-p <port>] ", argv[0]);
           printf ("[-h] [-d] [-t tty]\n");
 
-          printf (" -v\n\tVerbose output.\n");
-          printf (" -d\n\tFork to background. ");
+          printf (" -v\tVerbose output.\n");
+          printf (" -d\tFork to background. ");
           printf ("After forking, output goes to /dev/null\n");
 
-          printf (" -h\n\tPrint help.\n");
-          printf (" -p port\n\tChoose which port to bind to.\n");
-          printf (" -a address\n\tChoose which address to bind to.\n");
-          printf (" -t tty\n\tChoose which tty to use.\n");
+          printf ("-u\tDrop to this user\n");
+
+          printf (" -h\tPrint help.\n");
+          printf (" -p port\tChoose which port to bind to.\n");
+          printf (" -a address\tChoose which address to bind to.\n");
+          printf (" -t tty\tChoose which tty to use.\n");
           exit (0);
         }
     }
@@ -300,6 +352,12 @@ main (int argc, char **argv)
     return -1;
   if (verbose)
     printf ("%s open and ready for use\n", filename);
+
+
+  /* Drop privileges
+   */
+  drop_privileges (user);
+
 
   /* Setup of socket
    */
