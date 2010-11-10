@@ -36,6 +36,7 @@
 
 #include <pwd.h>
 
+#include <config.h>
 
 #define BUF_LEN 100
 #define PORT "6789"

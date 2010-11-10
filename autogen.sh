@@ -1,5 +1,2 @@
 #!/bin/sh
-autoheader \
-&& aclocal \
-&& automake --add-missing \
-&& autoconf
+autoreconf --install

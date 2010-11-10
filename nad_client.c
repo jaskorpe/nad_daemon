@@ -27,6 +27,7 @@
 #include <string.h>
 #include <getopt.h>
 
+#include <config.h>
 
 #define BUF_LEN 100
 
